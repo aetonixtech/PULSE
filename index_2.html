@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Pulse — Recovery Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --recovery: #1FC98E;
+      --strain:   #E8603A;
+      --sleep:    #8B78F0;
+      --bg:       #0a0a0f;
+      --bg2:      #13131a;
+      --bg3:      #1a1a24;
+      --border:   rgba(255,255,255,0.07);
+      --border2:  rgba(255,255,255,0.12);
+      --text:     #f0f0f5;
+      --muted:    #7a7a8c;
+      --dimmed:   #3a3a4a;
+      --font-ui:   'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+      --safe-top:    env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      overflow: hidden;
+    }
+
+    /* ── App shell ── */
+    #app {
+      width: 100%;
+      max-width: 430px;
+      height: 100dvh;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── Pages ── */
+    .page {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      display: none;
+      flex-direction: column;
+      padding-bottom: calc(72px + var(--safe-bottom));
+    }
+    .page::-webkit-scrollbar { display: none; }
+    .page.active { display: flex; }
+
+    /* ── Stub pages ── */
+    .stub-page {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding-bottom: calc(72px + var(--safe-bottom));
+    }
+    .stub-page.active { display: flex; }
+    .stub-icon { font-size: 48px; opacity: 0.15; }
+    .stub-title { font-size: 18px; font-weight: 600; color: var(--muted); font-family: var(--font-ui); }
+    .stub-sub { font-size: 13px; color: var(--dimmed); font-family: var(--font-mono); }
+
+    /* ── Status bar ── */
+    .statusbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: calc(var(--safe-top) + 10px) 20px 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .statusbar-icons { display: flex; gap: 8px; align-items: center; }
+    .statusbar-icons svg { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 20px 12px;
+    }
+
+    .header-left h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      line-height: 1;
+      font-family: var(--font-ui);
+    }
+
+    .header-left .date-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      margin-top: 4px;
+      letter-spacing: 0;
+    }
+
+    .avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      font-family: var(--font-ui);
+    }
+
+    /* ── Source pills ── */
+    .source-row {
+      display: flex;
+      gap: 6px;
+      padding: 0 20px 16px;
+    }
+
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid;
+      font-family: var(--font-ui);
+    }
+
+    .pill-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+    .pill-apple  { background: rgba(31,201,142,0.08); border-color: rgba(31,201,142,0.25); color: #1FC98E; }
+    .pill-apple .pill-dot { background: #1FC98E; }
+    .pill-garmin { background: rgba(139,120,240,0.08); border-color: rgba(139,120,240,0.25); color: #8B78F0; }
+    .pill-garmin .pill-dot { background: #8B78F0; }
+
+    /* ── Week navigator ── */
+    .week-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 20px 18px;
+    }
+
+    .week-arrow {
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--border2);
+      background: var(--bg2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .week-arrow:active { transform: scale(0.92); background: var(--bg3); }
+    .week-arrow svg { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .week-arrow.disabled { opacity: 0.25; pointer-events: none; }
+
+    .date-strip {
+      display: flex;
+      gap: 5px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .day-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 8px 4px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      cursor: pointer;
+      min-width: 0;
+      transition: background 0.18s, border-color 0.18s, transform 0.12s;
+      transform: translateY(0);
+    }
+
+    .day-btn:active { transform: scale(0.94); }
+
+    .day-btn.active {
+      background: var(--recovery);
+      border-color: var(--recovery);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(31,201,142,0.25);
+    }
+
+    .day-lbl { font-size: 10px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; text-align: center; line-height: 1; }
+    .day-num { font-size: 15px; font-weight: 700; color: var(--text); font-family: var(--font-ui); text-align: center; line-height: 1; }
+    .day-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--border2); }
+
+    .day-btn.active .day-lbl,
+    .day-btn.active .day-num { color: #0a0a0f; }
+    .day-btn.active .day-dot  { background: rgba(0,0,0,0.3); }
+
+    .week-slide-out-left  { animation: slideOutLeft  0.22s cubic-bezier(0.4,0,1,1) both; }
+    .week-slide-out-right { animation: slideOutRight 0.22s cubic-bezier(0.4,0,1,1) both; }
+    .week-slide-in-left   { animation: slideInLeft   0.26s cubic-bezier(0,0,0.2,1) both; }
+    .week-slide-in-right  { animation: slideInRight  0.26s cubic-bezier(0,0,0.2,1) both; }
+
+    @keyframes slideOutLeft  { to   { opacity:0; transform: translateX(-20px); } }
+    @keyframes slideOutRight { to   { opacity:0; transform: translateX(20px); } }
+    @keyframes slideInLeft   { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
+    @keyframes slideInRight  { from { opacity:0; transform: translateX(-20px); } to { opacity:1; transform: translateX(0); } }
+
+    /* ── Triple ring ── */
+    .ring-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 20px 20px;
+    }
+
+    .ring-wrap {
+      position: relative;
+      width: 220px;
+      height: 220px;
+    }
+
+    .ring-wrap svg {
+      position: absolute;
+      top: 0; left: 0;
+    }
+
+    .ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      pointer-events: none;
+    }
+
+    .ring-overall-label {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .ring-overall-val {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      line-height: 1.05;
+      font-family: var(--font-ui);
+    }
+
+    .ring-overall-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .ring-legend {
+      display: flex;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .legend-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .legend-dot-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--font-ui);
+      font-weight: 500;
+    }
+
+    .legend-swatch {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+
+    .legend-val {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      font-family: var(--font-ui);
+    }
+
+    /* ── Metric cards row ── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      padding: 0 20px 20px;
+    }
+
+    .metric-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.15s;
+    }
+
+    .metric-card:active { border-color: var(--border2); }
+
+    .metric-icon {
+      width: 30px; height: 30px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .metric-icon svg { width: 16px; height: 16px; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    .icon-recovery { background: rgba(31,201,142,0.12); }
+    .icon-recovery svg { stroke: var(--recovery); }
+    .icon-strain   { background: rgba(232,96,58,0.12); }
+    .icon-strain svg   { stroke: var(--strain); }
+    .icon-sleep    { background: rgba(139,120,240,0.12); }
+    .icon-sleep svg    { stroke: var(--sleep); }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      line-height: 1;
+      font-family: var(--font-ui);
+    }
+
+    .metric-unit { font-size: 12px; color: var(--muted); font-weight: 500; font-family: var(--font-ui); }
+    .metric-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); letter-spacing: 0.3px; }
+
+    /* ── Detail cards ── */
+    .section { padding: 0 20px 16px; }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .detail-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 8px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-ui);
+    }
+
+    .badge-good { background: rgba(31,201,142,0.12); color: var(--recovery); border: 1px solid rgba(31,201,142,0.2); }
+    .badge-warn { background: rgba(232,96,58,0.12);  color: var(--strain);   border: 1px solid rgba(232,96,58,0.2); }
+
+    .hrv-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .big-val {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      line-height: 1;
+      font-family: var(--font-ui);
+    }
+
+    .small-label { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 500; margin-bottom: 4px; }
+    .small-sub   { font-size: 12px; color: var(--dimmed); font-family: var(--font-mono); margin-top: 4px; }
+
+    .sparkline { display: flex; align-items: flex-end; gap: 3px; height: 36px; }
+    .sparkline div { width: 7px; border-radius: 2px 2px 0 0; }
+
+    .sleep-stages {
+      display: flex;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 0 8px;
+    }
+
+    .sleep-legend-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .sleep-legend-row span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--font-ui);
+      font-weight: 500;
+    }
+
+    .swatch {
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .trend-bars {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 32px;
+      margin: 10px 0 6px;
+    }
+
+    .trend-bar {
+      flex: 1;
+      border-radius: 2px 2px 0 0;
+      min-height: 3px;
+    }
+
+    .trend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--dimmed);
+      font-family: var(--font-mono);
+    }
+
+    /* ── Tab bar ── */
+    .tab-bar {
+      display: flex;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      padding: 8px 0 calc(8px + var(--safe-bottom));
+      position: relative;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      padding: 4px 0;
+      transition: opacity 0.15s;
+    }
+
+    .tab-item:active { opacity: 0.6; }
+
+    .tab-icon {
+      width: 24px; height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tab-icon svg {
+      width: 22px; height: 22px;
+      fill: none;
+      stroke: var(--dimmed);
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: stroke 0.2s;
+    }
+
+    .tab-item.active .tab-icon svg { stroke: var(--recovery); }
+
+    .tab-lbl {
+      font-size: 10px;
+      color: var(--dimmed);
+      font-family: var(--font-ui);
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .tab-item.active .tab-lbl { color: var(--recovery); }
+
+    .tab-active-dot {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: transparent;
+      transition: background 0.2s;
+    }
+
+    .tab-item.active .tab-active-dot { background: var(--recovery); }
+
+    /* ── Fade in ── */
+    .fadein {
+      animation: fadein 0.4s ease both;
+    }
+
+    @keyframes fadein {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .fadein-1 { animation-delay: 0.05s; }
+    .fadein-2 { animation-delay: 0.10s; }
+    .fadein-3 { animation-delay: 0.15s; }
+    .fadein-4 { animation-delay: 0.20s; }
+    .fadein-5 { animation-delay: 0.25s; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── HOME PAGE ── -->
+  <div class="page active" id="page-home">
+
+    <div class="statusbar">
+      <span id="clock">9:41</span>
+      <div class="statusbar-icons">
+        <!-- wifi -->
+        <svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+        <!-- battery -->
+        <svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/><rect x="4" y="9" width="12" height="6" rx="1" fill="currentColor" stroke="none"/></svg>
+      </div>
+    </div>
+
+    <div class="header fadein">
+      <div class="header-left">
+        <h1>Today</h1>
+        <div class="date-label" id="today-date">Saturday, 22 May</div>
+      </div>
+      <div class="avatar">JD</div>
+    </div>
+
+    <div class="source-row fadein fadein-1">
+      <div class="pill pill-apple"><div class="pill-dot"></div>Apple Fitness</div>
+      <div class="pill pill-garmin"><div class="pill-dot"></div>Garmin Connect</div>
+    </div>
+
+    <!-- Week navigator -->
+    <div class="week-nav fadein fadein-1">
+      <button class="week-arrow disabled" id="week-prev" aria-label="Previous week">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="date-strip" id="date-strip"></div>
+      <button class="week-arrow disabled" id="week-next" aria-label="Next week">
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <!-- Triple ring -->
+    <div class="ring-section fadein fadein-2">
+      <div class="ring-wrap">
+        <svg id="ring-svg" width="220" height="220" viewBox="0 0 220 220" role="img" aria-label="Triple ring showing recovery 76%, strain 68%, sleep 88%">
+          <!-- Track circles -->
+          <circle cx="110" cy="110" r="98" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12"/>
+          <circle cx="110" cy="110" r="75" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12"/>
+          <circle cx="110" cy="110" r="52" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12"/>
+          <!-- Recovery outer  r=98 circ=615.8  76% → offset=147.8 -->
+          <circle id="ring-recovery" cx="110" cy="110" r="98"
+            fill="none" stroke="#1FC98E" stroke-width="12"
+            stroke-dasharray="615.8" stroke-dashoffset="615.8"
+            stroke-linecap="round" transform="rotate(-90 110 110)"/>
+          <!-- Strain middle  r=75 circ=471.2  68% → offset=150.8 -->
+          <circle id="ring-strain" cx="110" cy="110" r="75"
+            fill="none" stroke="#E8603A" stroke-width="12"
+            stroke-dasharray="471.2" stroke-dashoffset="471.2"
+            stroke-linecap="round" transform="rotate(-90 110 110)"/>
+          <!-- Sleep inner  r=52 circ=326.7  88% → offset=39.2 -->
+          <circle id="ring-sleep" cx="110" cy="110" r="52"
+            fill="none" stroke="#8B78F0" stroke-width="12"
+            stroke-dasharray="326.7" stroke-dashoffset="326.7"
+            stroke-linecap="round" transform="rotate(-90 110 110)"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-overall-label">overall</span>
+          <span class="ring-overall-val">77%</span>
+          <span class="ring-overall-sub">balanced</span>
+        </div>
+      </div>
+      <div class="ring-legend">
+        <div class="legend-item">
+          <div class="legend-dot-row"><div class="legend-swatch" style="background:var(--recovery);"></div>Recovery</div>
+          <div class="legend-val" style="color:var(--recovery);">76%</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot-row"><div class="legend-swatch" style="background:var(--strain);"></div>Strain</div>
+          <div class="legend-val" style="color:var(--strain);">68%</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot-row"><div class="legend-swatch" style="background:var(--sleep);"></div>Sleep</div>
+          <div class="legend-val" style="color:var(--sleep);">88%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metric cards -->
+    <div class="metrics-grid fadein fadein-3">
+      <div class="metric-card">
+        <div class="metric-icon icon-recovery">
+          <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="metric-value" style="color:var(--recovery);">76<span class="metric-unit">%</span></div>
+        <div class="metric-label">recovery</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon icon-strain">
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <div class="metric-value" style="color:var(--strain);">14.2</div>
+        <div class="metric-label">strain</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon icon-sleep">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </div>
+        <div class="metric-value" style="color:var(--sleep);">7<span class="metric-unit">h22</span></div>
+        <div class="metric-label">sleep</div>
+      </div>
+    </div>
+
+    <!-- Recovery detail -->
+    <div class="section fadein fadein-3">
+      <div class="section-title">Recovery</div>
+      <div class="detail-card">
+        <div class="hrv-row">
+          <div>
+            <div class="small-label">HRV</div>
+            <div class="big-val" style="color:var(--recovery);">68 <span style="font-size:14px;color:var(--muted);font-weight:500;">ms</span></div>
+            <div class="small-sub">Baseline 60ms · +8ms today</div>
+            <span class="badge badge-good" style="margin-top:8px;">Ready to perform</span>
+          </div>
+          <div class="sparkline">
+            <div style="height:40%;background:var(--dimmed);"></div>
+            <div style="height:55%;background:var(--dimmed);"></div>
+            <div style="height:48%;background:var(--dimmed);"></div>
+            <div style="height:62%;background:var(--dimmed);"></div>
+            <div style="height:52%;background:var(--dimmed);"></div>
+            <div style="height:70%;background:var(--dimmed);"></div>
+            <div style="height:90%;background:var(--recovery);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sleep detail -->
+    <div class="section fadein fadein-4">
+      <div class="section-title">Sleep</div>
+      <div class="detail-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="big-val" style="color:var(--sleep);">7h 22m</div>
+            <div class="small-sub">11:08 PM — 6:30 AM</div>
+          </div>
+          <span class="badge badge-good">Good</span>
+        </div>
+        <div class="sleep-stages">
+          <div style="width:8%;background:#444455;"></div>
+          <div style="width:18%;background:#6b62c0;"></div>
+          <div style="width:34%;background:#8B78F0;"></div>
+          <div style="width:40%;background:#a89cf5;"></div>
+        </div>
+        <div class="sleep-legend-row">
+          <span><span class="swatch" style="background:#444455;"></span>Awake</span>
+          <span><span class="swatch" style="background:#6b62c0;"></span>Light</span>
+          <span><span class="swatch" style="background:#8B78F0;"></span>Deep</span>
+          <span><span class="swatch" style="background:#a89cf5;"></span>REM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strain detail -->
+    <div class="section fadein fadein-5">
+      <div class="section-title">Strain</div>
+      <div class="detail-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div class="big-val" style="color:var(--strain);">14.2 <span style="font-size:14px;color:var(--muted);font-weight:500;">/ 21</span></div>
+            <div class="small-sub">68% max HR · 1,240 kJ · 54 min zone 3+</div>
+            <span class="badge badge-warn" style="margin-top:8px;">Within capacity</span>
+          </div>
+        </div>
+        <div class="trend-bars">
+          <div class="trend-bar" style="height:55%;background:rgba(232,96,58,0.45);"></div>
+          <div class="trend-bar" style="height:30%;background:rgba(232,96,58,0.45);"></div>
+          <div class="trend-bar" style="height:80%;background:var(--strain);"></div>
+          <div class="trend-bar" style="height:20%;background:rgba(232,96,58,0.45);"></div>
+          <div class="trend-bar" style="height:65%;background:var(--strain);"></div>
+          <div class="trend-bar" style="height:40%;background:rgba(232,96,58,0.45);"></div>
+          <div class="trend-bar" style="height:67%;background:var(--strain);"></div>
+        </div>
+        <div class="trend-labels">
+          <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-home -->
+
+  <!-- ── TRENDS PAGE (stub) ── -->
+  <div class="stub-page" id="page-trends">
+    <div class="stub-icon">📈</div>
+    <div class="stub-title">Trends</div>
+    <div class="stub-sub">Coming soon — coach me here</div>
+  </div>
+
+  <!-- ── ACTIVITIES PAGE (stub) ── -->
+  <div class="stub-page" id="page-activities">
+    <div class="stub-icon">🏃</div>
+    <div class="stub-title">Activities</div>
+    <div class="stub-sub">Coming soon — coach me here</div>
+  </div>
+
+  <!-- ── SETTINGS PAGE (stub) ── -->
+  <div class="stub-page" id="page-settings">
+    <div class="stub-icon">⚙️</div>
+    <div class="stub-title">Settings</div>
+    <div class="stub-sub">Coming soon — coach me here</div>
+  </div>
+
+  <!-- ── TAB BAR ── -->
+  <nav class="tab-bar" role="tablist">
+    <div class="tab-item active" role="tab" aria-selected="true" data-page="home" tabindex="0">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+      </div>
+      <div class="tab-lbl">Today</div>
+      <div class="tab-active-dot"></div>
+    </div>
+    <div class="tab-item" role="tab" aria-selected="false" data-page="trends" tabindex="0">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div class="tab-lbl">Trends</div>
+      <div class="tab-active-dot"></div>
+    </div>
+    <div class="tab-item" role="tab" aria-selected="false" data-page="activities" tabindex="0">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+      </div>
+      <div class="tab-lbl">Activities</div>
+      <div class="tab-active-dot"></div>
+    </div>
+    <div class="tab-item" role="tab" aria-selected="false" data-page="settings" tabindex="0">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+      <div class="tab-lbl">Settings</div>
+      <div class="tab-active-dot"></div>
+    </div>
+  </nav>
+
+</div><!-- /app -->
+
+<script>
+  // ── Live clock ──
+  function updateClock() {
+    const now = new Date();
+    const h = now.getHours().toString().padStart(2,'0');
+    const m = now.getMinutes().toString().padStart(2,'0');
+    document.getElementById('clock').textContent = h + ':' + m;
+  }
+  updateClock();
+  setInterval(updateClock, 10000);
+
+  // ── Today's date label ──
+  const dateEl = document.getElementById('today-date');
+  const today = new Date();
+  dateEl.textContent = today.toLocaleDateString('en-AU', { weekday:'long', day:'numeric', month:'long' });
+
+  // ── Week navigator ──
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const strip     = document.getElementById('date-strip');
+  const btnPrev   = document.getElementById('week-prev');
+  const btnNext   = document.getElementById('week-next');
+
+  // weekOffset: 0 = current week, -1 = last week, etc.
+  let weekOffset  = 0;
+  // activeDate: which date is selected (epoch ms)
+  let activeDate  = today.getTime();
+
+  function getWeekStart(offset) {
+    // Monday-based week containing today, shifted by offset weeks
+    const d = new Date(today);
+    const dow = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
+    d.setDate(d.getDate() - dow + offset * 7);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  function isSameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() &&
+           a.getMonth()    === b.getMonth()    &&
+           a.getDate()     === b.getDate();
+  }
+
+  function renderWeek(direction) {
+    const weekStart = getWeekStart(weekOffset);
+    const todayMidnight = new Date(today); todayMidnight.setHours(0,0,0,0);
+    const activeD = new Date(activeDate);
+
+    // Animate strip out
+    const outClass = direction === 'prev' ? 'week-slide-out-right' : 'week-slide-out-left';
+    const inClass  = direction === 'prev' ? 'week-slide-in-right'  : 'week-slide-in-left';
+
+    strip.classList.add(outClass);
+
+    setTimeout(() => {
+      strip.classList.remove(outClass);
+      strip.innerHTML = '';
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        const isFuture  = d > todayMidnight;
+        const isActive  = isSameDay(d, activeD);
+        const isToday   = isSameDay(d, todayMidnight);
+
+        const btn = document.createElement('div');
+        btn.className = 'day-btn' + (isActive ? ' active' : '') + (isFuture ? ' future' : '');
+
+        btn.innerHTML =
+          `<span class="day-lbl">${DAY_NAMES[d.getDay()]}</span>` +
+          `<span class="day-num">${d.getDate()}</span>` +
+          `<div class="day-dot" style="${isToday && !isActive ? 'background:var(--recovery);opacity:0.6;' : ''}"></div>`;
+
+        if (!isFuture) {
+          btn.addEventListener('click', () => {
+            strip.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeDate = d.getTime();
+          });
+        } else {
+          btn.style.opacity = '0.3';
+          btn.style.pointerEvents = 'none';
+        }
+
+        strip.appendChild(btn);
+      }
+
+      strip.classList.add(inClass);
+      setTimeout(() => strip.classList.remove(inClass), 280);
+
+      // Update arrow states
+      btnPrev.classList.remove('disabled');
+      // Disable next if current week contains today
+      const nextWeekStart = getWeekStart(weekOffset + 1);
+      btnNext.classList.toggle('disabled', nextWeekStart > todayMidnight);
+
+    }, 200);
+  }
+
+  // Initial render (no animation direction needed)
+  renderWeek('next');
+
+  btnPrev.addEventListener('click', () => {
+    weekOffset--;
+    renderWeek('prev');
+  });
+
+  btnNext.addEventListener('click', () => {
+    weekOffset++;
+    renderWeek('next');
+  });
+
+  // ── Refined ring draw animation ──
+  // Each ring draws from 0 using JS so we can stagger and ease precisely
+  const rings = [
+    { el: document.getElementById('ring-recovery'), circ: 615.8, pct: 0.76, delay: 300 },
+    { el: document.getElementById('ring-strain'),   circ: 471.2, pct: 0.68, delay: 520 },
+    { el: document.getElementById('ring-sleep'),    circ: 326.7, pct: 0.88, delay: 740 },
+  ];
+
+  function easeOutExpo(t) {
+    return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+  }
+
+  function animateRing(ring) {
+    const duration = 900;
+    const targetOffset = ring.circ * (1 - ring.pct);
+    const start = performance.now();
+
+    function tick(now) {
+      const elapsed = now - start;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = easeOutExpo(t);
+      const currentOffset = ring.circ - eased * (ring.circ - targetOffset);
+      ring.el.style.strokeDashoffset = currentOffset;
+      if (t < 1) requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  // Fade the whole SVG in, then draw each ring
+  const svg = document.getElementById('ring-svg');
+  svg.style.opacity = '0';
+  svg.style.transform = 'scale(0.92)';
+  svg.style.transition = 'opacity 0.5s ease, transform 0.6s cubic-bezier(0.22,1,0.36,1)';
+
+  setTimeout(() => {
+    svg.style.opacity = '1';
+    svg.style.transform = 'scale(1)';
+  }, 100);
+
+  rings.forEach(ring => {
+    setTimeout(() => animateRing(ring), ring.delay);
+  });
+
+  // ── Tab navigation ──
+  const tabs  = document.querySelectorAll('.tab-item');
+  const pages = {
+    home:       document.getElementById('page-home'),
+    trends:     document.getElementById('page-trends'),
+    activities: document.getElementById('page-activities'),
+    settings:   document.getElementById('page-settings'),
+  };
+
+  function switchTab(id) {
+    tabs.forEach(t => {
+      const active = t.dataset.page === id;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active);
+    });
+    Object.entries(pages).forEach(([key, el]) => {
+      el.classList.toggle('active', key === id);
+    });
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.page));
+    tab.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') switchTab(tab.dataset.page); });
+  });
+</script>
+</body>
+</html>
