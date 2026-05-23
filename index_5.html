@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0a0a0f"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>Pulse — Recovery Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --recovery:#1FC98E;--strain:#E8603A;--sleep:#8B78F0;
+      --bg:#0a0a0f;--bg2:#13131a;--bg3:#1a1a24;
+      --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+      --text:#f0f0f5;--muted:#7a7a8c;--dimmed:#3a3a4a;
+      --font-ui:'Plus Jakarta Sans',sans-serif;--font-mono:'DM Mono',monospace;
+      --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--font-ui);overflow:hidden;}
+    #app{width:100%;max-width:430px;height:100dvh;margin:0 auto;display:flex;flex-direction:column;background:var(--bg);position:relative;overflow:hidden;}
+
+    /* Pages */
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;display:none;flex-direction:column;padding-bottom:calc(72px + var(--safe-bottom));}
+    .page::-webkit-scrollbar{display:none;}
+    .page.active{display:flex;}
+    .stub-page{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding-bottom:calc(72px + var(--safe-bottom));}
+    .stub-page.active{display:flex;}
+    .stub-icon{font-size:48px;opacity:0.15;}
+    .stub-title{font-size:18px;font-weight:600;color:var(--muted);}
+    .stub-sub{font-size:13px;color:var(--dimmed);font-family:var(--font-mono);}
+
+    /* Header - NO statusbar */
+    .header{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--safe-top) + 18px) 20px 12px;}
+    .header-left h1{font-size:24px;font-weight:700;letter-spacing:-0.3px;line-height:1;}
+    .header-left .date-label{font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-top:4px;}
+    .avatar{width:36px;height:36px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:border-color 0.15s,transform 0.12s;}
+    .avatar:active{transform:scale(0.92);border-color:var(--recovery);}
+
+    /* Pills */
+    .source-row{display:flex;gap:6px;padding:0 20px 14px;}
+    .pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer;transition:opacity 0.15s,transform 0.12s;}
+    .pill:active{transform:scale(0.95);}
+    .pill-dot{width:5px;height:5px;border-radius:50%;}
+    .pill-connected{background:rgba(31,201,142,0.08);border-color:rgba(31,201,142,0.25);color:#1FC98E;}
+    .pill-connected .pill-dot{background:#1FC98E;}
+    .pill-disconnected{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.1);color:var(--muted);}
+    .pill-disconnected .pill-dot{background:var(--dimmed);}
+
+    /* Disconnect banner */
+    .disc-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(232,96,58,0.08);border:1px solid rgba(232,96,58,0.2);border-radius:12px;margin:0 20px 14px;font-size:12px;color:var(--strain);font-family:var(--font-mono);}
+    .disc-banner svg{width:14px;height:14px;fill:none;stroke:var(--strain);stroke-width:2;stroke-linecap:round;flex-shrink:0;}
+
+    /* HealthKit permission banner */
+    .hk-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(56,168,255,0.08);border:1px solid rgba(56,168,255,0.2);border-radius:12px;margin:0 20px 14px;font-size:12px;color:#38a8ff;font-family:var(--font-mono);cursor:pointer;}
+    .hk-banner svg{width:14px;height:14px;fill:none;stroke:#38a8ff;stroke-width:2;stroke-linecap:round;flex-shrink:0;}
+
+    /* Week nav */
+    .week-nav{display:flex;align-items:flex-end;gap:8px;padding:6px 20px 18px;overflow:visible;}
+    .week-arrow{width:34px;height:34px;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background 0.15s,transform 0.1s;}
+    .week-arrow:active{transform:scale(0.92);background:var(--bg3);}
+    .week-arrow svg{width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+    .week-arrow.disabled{opacity:0.25;pointer-events:none;}
+    .date-strip{display:flex;gap:4px;flex:1;overflow:visible;padding:6px 0 0;}
+    .day-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;border-radius:12px;border:1px solid var(--border);background:var(--bg2);cursor:pointer;min-width:0;transition:background 0.18s,border-color 0.18s,transform 0.15s,box-shadow 0.18s;}
+    .day-btn:active{transform:scale(0.94);}
+    .day-btn.active{background:var(--recovery);border-color:var(--recovery);transform:translateY(-3px);box-shadow:0 6px 18px rgba(31,201,142,0.28);}
+    .day-lbl{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.3px;text-align:center;line-height:1;}
+    .day-num{font-size:15px;font-weight:700;color:var(--text);text-align:center;line-height:1;}
+    .day-dot{width:4px;height:4px;border-radius:50%;background:var(--border2);margin-top:1px;}
+    .day-btn.active .day-lbl,.day-btn.active .day-num{color:#0a0a0f;}
+    .day-btn.active .day-dot{background:rgba(0,0,0,0.3);}
+    .week-slide-out-left{animation:slideOutLeft 0.22s cubic-bezier(0.4,0,1,1) both;}
+    .week-slide-out-right{animation:slideOutRight 0.22s cubic-bezier(0.4,0,1,1) both;}
+    .week-slide-in-left{animation:slideInLeft 0.26s cubic-bezier(0,0,0.2,1) both;}
+    .week-slide-in-right{animation:slideInRight 0.26s cubic-bezier(0,0,0.2,1) both;}
+    @keyframes slideOutLeft{to{opacity:0;transform:translateX(-20px);}}
+    @keyframes slideOutRight{to{opacity:0;transform:translateX(20px);}}
+    @keyframes slideInLeft{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+    @keyframes slideInRight{from{opacity:0;transform:translateX(-20px);}to{opacity:1;transform:translateX(0);}}
+
+    /* Triple ring */
+    .ring-section{display:flex;flex-direction:column;align-items:center;padding:0 20px 20px;}
+    .ring-wrap{position:relative;width:220px;height:220px;}
+    .ring-wrap svg{position:absolute;top:0;left:0;}
+    .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;pointer-events:none;}
+    .ring-overall-label{font-size:9px;color:var(--muted);font-family:var(--font-mono);letter-spacing:1.2px;text-transform:uppercase;}
+    .ring-overall-val{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1;}
+    .ring-overall-sub{font-size:10px;color:var(--muted);font-family:var(--font-mono);}
+    .ring-legend{display:flex;gap:18px;margin-top:18px;}
+    .legend-item{display:flex;flex-direction:column;align-items:center;gap:4px;}
+    .legend-dot-row{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);font-weight:500;}
+    .legend-swatch{width:6px;height:6px;border-radius:50%;}
+    .legend-val{font-size:17px;font-weight:700;letter-spacing:-0.3px;}
+
+    /* Metric cards */
+    .metrics-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 20px 20px;}
+    .metric-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px 10px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:border-color 0.15s,transform 0.12s;}
+    .metric-card:active{transform:scale(0.96);border-color:var(--border2);}
+    .metric-icon{width:30px;height:30px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+    .metric-icon svg{width:16px;height:16px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+    .icon-recovery{background:rgba(31,201,142,0.12);}
+    .icon-recovery svg{stroke:var(--recovery);}
+    .icon-strain{background:rgba(232,96,58,0.12);}
+    .icon-strain svg{stroke:var(--strain);}
+    .icon-sleep{background:rgba(139,120,240,0.12);}
+    .icon-sleep svg{stroke:var(--sleep);}
+    .metric-value{font-size:20px;font-weight:700;letter-spacing:-0.4px;line-height:1;}
+    .metric-unit{font-size:12px;color:var(--muted);font-weight:500;}
+    .metric-label{font-size:11px;color:var(--muted);font-family:var(--font-mono);letter-spacing:0.3px;}
+
+    /* Sections / detail cards */
+    .section{padding:0 20px 16px;}
+    .section-title{font-size:11px;font-weight:500;color:var(--muted);font-family:var(--font-mono);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px;}
+    .detail-card{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:16px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s,transform 0.12s;}
+    .detail-card:active{transform:scale(0.98);border-color:var(--border2);}
+    .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+    .badge-good{background:rgba(31,201,142,0.12);color:var(--recovery);border:1px solid rgba(31,201,142,0.2);}
+    .badge-warn{background:rgba(232,96,58,0.12);color:var(--strain);border:1px solid rgba(232,96,58,0.2);}
+    .badge-low{background:rgba(139,120,240,0.12);color:var(--sleep);border:1px solid rgba(139,120,240,0.2);}
+    .hrv-row{display:flex;justify-content:space-between;align-items:center;}
+    .big-val{font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1;}
+    .small-label{font-size:12px;color:var(--muted);font-weight:500;margin-bottom:4px;}
+    .small-sub{font-size:12px;color:var(--dimmed);font-family:var(--font-mono);margin-top:4px;}
+    .sparkline{display:flex;align-items:flex-end;gap:3px;height:36px;}
+    .sparkline div{width:7px;border-radius:2px 2px 0 0;}
+    .sleep-stages{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:10px 0 8px;}
+    .sleep-legend-row{display:flex;gap:12px;flex-wrap:wrap;}
+    .sleep-legend-row span{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);font-weight:500;}
+    .swatch{width:8px;height:8px;border-radius:2px;display:inline-block;}
+    .trend-bars{display:flex;gap:4px;align-items:flex-end;height:32px;margin:10px 0 6px;}
+    .trend-bar{flex:1;border-radius:2px 2px 0 0;min-height:3px;}
+    .trend-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--dimmed);font-family:var(--font-mono);}
+
+    /* Trends list */
+    .trends-list{padding:0 20px calc(80px + var(--safe-bottom));display:flex;flex-direction:column;gap:6px;}
+    .trend-btn{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;cursor:pointer;position:relative;overflow:hidden;transition:border-color 0.18s,transform 0.14s;opacity:0;transform:translateY(12px);}
+    .trend-btn.visible{animation:trendIn 0.35s cubic-bezier(0.22,1,0.36,1) forwards;}
+    @keyframes trendIn{to{opacity:1;transform:translateY(0);}}
+    .trend-btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0.035);opacity:0;transition:opacity 0.18s;border-radius:inherit;}
+    .trend-btn:active{transform:scale(0.97);}
+    .trend-btn:active::after{opacity:1;}
+    .trend-text{flex:1;min-width:0;}
+    .trend-label{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .trend-sublabel{font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:1px;}
+    .trend-arrow{flex-shrink:0;width:16px;height:16px;display:flex;align-items:center;justify-content:center;}
+    .trend-arrow svg{width:13px;height:13px;fill:none;stroke:var(--dimmed);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+    /* Tab bar */
+    .tab-bar{display:flex;background:var(--bg2);border-top:1px solid var(--border);padding:8px 0 calc(8px + var(--safe-bottom));position:relative;z-index:100;flex-shrink:0;}
+    .tab-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;transition:opacity 0.15s;}
+    .tab-item:active{opacity:0.6;}
+    .tab-icon{width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
+    .tab-icon svg{width:22px;height:22px;fill:none;stroke:var(--dimmed);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;transition:stroke 0.2s;}
+    .tab-item.active .tab-icon svg{stroke:var(--recovery);}
+    .tab-lbl{font-size:10px;color:var(--dimmed);font-weight:500;transition:color 0.2s;}
+    .tab-item.active .tab-lbl{color:var(--recovery);}
+    .tab-active-dot{width:4px;height:4px;border-radius:50%;background:transparent;transition:background 0.2s;}
+    .tab-item.active .tab-active-dot{background:var(--recovery);}
+
+    /* Fade in */
+    .fadein{animation:fadein 0.4s ease both;}
+    .fadein-1{animation-delay:0.05s;}.fadein-2{animation-delay:0.10s;}
+    .fadein-3{animation-delay:0.15s;}.fadein-4{animation-delay:0.20s;}.fadein-5{animation-delay:0.25s;}
+    @keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+    /* Overlay pages (metric sub, sleep, profile) */
+    .overlay-page{position:absolute;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.32s cubic-bezier(0.22,1,0.36,1);overflow-y:auto;scrollbar-width:none;}
+    .overlay-page::-webkit-scrollbar{display:none;}
+    .overlay-page.open{transform:translateX(0);}
+    .overlay-header{display:flex;align-items:center;gap:12px;padding:calc(var(--safe-top) + 16px) 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .back-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform 0.1s,background 0.15s;}
+    .back-btn:active{transform:scale(0.92);background:var(--bg3);}
+    .back-btn svg{width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+    .overlay-title{font-size:17px;font-weight:700;}
+
+    /* Sleep page */
+    .sleep-hero{display:flex;flex-direction:column;align-items:center;padding:24px 20px 16px;gap:4px;}
+    .sleep-hero-dur{font-size:48px;font-weight:700;letter-spacing:-2px;line-height:1;color:var(--sleep);}
+    .sleep-hero-sub{font-size:13px;color:var(--muted);font-family:var(--font-mono);}
+    .sleep-score-row{display:flex;gap:8px;margin-top:12px;}
+    .sleep-score-chip{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;color:var(--muted);}
+    .sleep-score-chip.highlight{background:rgba(139,120,240,0.12);border-color:rgba(139,120,240,0.3);color:var(--sleep);}
+
+    .sleep-timeline{padding:0 20px 16px;}
+    .timeline-bar-wrap{position:relative;height:48px;border-radius:10px;overflow:hidden;background:var(--bg3);margin:10px 0 6px;}
+    .timeline-segment{position:absolute;top:0;bottom:0;}
+    .timeline-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--dimmed);font-family:var(--font-mono);}
+
+    .sleep-stages-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 20px 16px;}
+    .stage-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 12px;}
+    .stage-card-label{font-size:11px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
+    .stage-card-val{font-size:22px;font-weight:700;letter-spacing:-0.5px;}
+    .stage-card-bar{height:4px;border-radius:2px;background:var(--border);margin-top:8px;overflow:hidden;}
+    .stage-card-fill{height:100%;border-radius:2px;}
+    .stage-card-pct{font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:4px;}
+
+    .sleep-metrics-list{padding:0 20px calc(32px + var(--safe-bottom));}
+    .sleep-metric-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--border);}
+    .sleep-metric-row:last-child{border-bottom:none;}
+    .sleep-metric-label{font-size:14px;font-weight:500;}
+    .sleep-metric-val{font-size:14px;font-weight:600;font-family:var(--font-mono);color:var(--muted);}
+
+    /* Metric sub-page stub */
+    .sub-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;opacity:0.35;}
+    .sub-body-icon{font-size:52px;}
+    .sub-body-label{font-size:13px;color:var(--muted);font-family:var(--font-mono);}
+
+    /* Profile */
+    .profile-hero{display:flex;flex-direction:column;align-items:center;padding:24px 20px 20px;gap:10px;}
+    .profile-avatar-large{width:80px;height:80px;border-radius:50%;background:var(--bg3);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:var(--muted);}
+    .profile-name{font-size:20px;font-weight:700;letter-spacing:-0.3px;}
+    .profile-handle{font-size:12px;color:var(--muted);font-family:var(--font-mono);}
+    .profile-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 20px 20px;}
+    .profile-stat{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:3px;}
+    .profile-stat-val{font-size:18px;font-weight:700;letter-spacing:-0.3px;}
+    .profile-stat-lbl{font-size:10px;color:var(--muted);font-family:var(--font-mono);}
+    .profile-section{padding:0 20px 16px;}
+    .profile-section-title{font-size:11px;font-weight:500;color:var(--muted);font-family:var(--font-mono);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px;}
+    .profile-row{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;margin-bottom:6px;cursor:pointer;transition:border-color 0.15s,transform 0.12s;}
+    .profile-row:active{transform:scale(0.98);border-color:var(--border2);}
+    .profile-row-left{display:flex;align-items:center;gap:10px;}
+    .profile-row-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+    .profile-row-label{font-size:14px;font-weight:600;}
+    .profile-row-sub{font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:1px;}
+    .profile-row-right{display:flex;align-items:center;gap:6px;}
+    .profile-row-value{font-size:13px;color:var(--muted);font-family:var(--font-mono);}
+    .chevron svg{width:13px;height:13px;fill:none;stroke:var(--dimmed);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+    .conn-toggle{width:38px;height:22px;border-radius:11px;border:1px solid var(--border2);background:var(--dimmed);position:relative;cursor:pointer;transition:background 0.2s,border-color 0.2s;flex-shrink:0;}
+    .conn-toggle.on{background:var(--recovery);border-color:var(--recovery);}
+    .conn-toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;}
+    .conn-toggle.on::after{transform:translateX(16px);}
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══ HOME ══ -->
+  <div class="page active" id="page-home">
+    <div class="header fadein">
+      <div class="header-left">
+        <h1>Today</h1>
+        <div class="date-label" id="today-date"></div>
+      </div>
+      <div class="avatar" id="home-avatar" role="button" aria-label="Open profile">JD</div>
+    </div>
+    <div class="source-row fadein fadein-1" id="source-row">
+      <div class="pill pill-connected" id="pill-apple" role="button" aria-label="Apple Health connection status"><div class="pill-dot"></div><span>Apple Health</span></div>
+      <div class="pill pill-connected" id="pill-garmin" role="button" aria-label="Garmin Connect connection status"><div class="pill-dot"></div><span>Garmin</span></div>
+    </div>
+    <div class="disc-banner" id="disc-banner" style="display:none">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="disc-text">No data sources connected</span>
+    </div>
+    <div class="hk-banner" id="hk-banner" style="display:none" role="button" id="hk-request-btn">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>Tap to grant Apple Health permission</span>
+    </div>
+    <div class="week-nav fadein fadein-1">
+      <button class="week-arrow disabled" id="week-prev" aria-label="Previous week"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <div class="date-strip" id="date-strip"></div>
+      <button class="week-arrow disabled" id="week-next" aria-label="Next week"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <div class="ring-section fadein fadein-2">
+      <div class="ring-wrap">
+        <svg id="ring-svg" width="220" height="220" viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r="96" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="15"/>
+          <circle cx="110" cy="110" r="71" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="15"/>
+          <circle cx="110" cy="110" r="46" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="15"/>
+          <circle id="ring-recovery" cx="110" cy="110" r="96" fill="none" stroke="#1FC98E" stroke-width="15" stroke-dasharray="603.2" stroke-dashoffset="603.2" stroke-linecap="round" transform="rotate(-90 110 110)"/>
+          <circle id="ring-strain"   cx="110" cy="110" r="71" fill="none" stroke="#E8603A" stroke-width="15" stroke-dasharray="446.1" stroke-dashoffset="446.1" stroke-linecap="round" transform="rotate(-90 110 110)"/>
+          <circle id="ring-sleep"    cx="110" cy="110" r="46" fill="none" stroke="#8B78F0" stroke-width="15" stroke-dasharray="289.0" stroke-dashoffset="289.0" stroke-linecap="round" transform="rotate(-90 110 110)"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-overall-label">overall</span>
+          <span class="ring-overall-val" id="ring-overall-val">—</span>
+          <span class="ring-overall-sub" id="ring-overall-sub">—</span>
+        </div>
+      </div>
+      <div class="ring-legend">
+        <div class="legend-item"><div class="legend-dot-row"><div class="legend-swatch" style="background:var(--recovery)"></div>Recovery</div><div class="legend-val" style="color:var(--recovery)" id="legend-recovery">—</div></div>
+        <div class="legend-item"><div class="legend-dot-row"><div class="legend-swatch" style="background:var(--strain)"></div>Strain</div><div class="legend-val" style="color:var(--strain)" id="legend-strain">—</div></div>
+        <div class="legend-item"><div class="legend-dot-row"><div class="legend-swatch" style="background:var(--sleep)"></div>Sleep</div><div class="legend-val" style="color:var(--sleep)" id="legend-sleep">—</div></div>
+      </div>
+    </div>
+    <div class="metrics-grid fadein fadein-3">
+      <div class="metric-card" data-sub="Recovery" data-icon="💚">
+        <div class="metric-icon icon-recovery"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+        <div class="metric-value" style="color:var(--recovery)" id="metric-recovery">—</div>
+        <div class="metric-label">recovery</div>
+      </div>
+      <div class="metric-card" data-sub="Strain" data-icon="🔥">
+        <div class="metric-icon icon-strain"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+        <div class="metric-value" style="color:var(--strain)" id="metric-strain">—</div>
+        <div class="metric-label">strain</div>
+      </div>
+      <div class="metric-card" id="metric-sleep-card" data-open-sleep="1">
+        <div class="metric-icon icon-sleep"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>
+        <div class="metric-value" style="color:var(--sleep)" id="metric-sleep">—</div>
+        <div class="metric-label">sleep</div>
+      </div>
+    </div>
+    <div class="section fadein fadein-3">
+      <div class="section-title">Recovery</div>
+      <div class="detail-card" data-sub="Recovery" data-icon="💚">
+        <div class="hrv-row">
+          <div>
+            <div class="small-label">HRV</div>
+            <div class="big-val" style="color:var(--recovery)"><span id="detail-hrv">—</span> <span style="font-size:14px;color:var(--muted);font-weight:500">ms</span></div>
+            <div class="small-sub" id="detail-hrv-sub">—</div>
+            <span class="badge badge-good" id="detail-rec-badge" style="margin-top:8px">—</span>
+          </div>
+          <div class="sparkline" id="sparkline-hrv"></div>
+        </div>
+      </div>
+    </div>
+    <div class="section fadein fadein-4">
+      <div class="section-title">Sleep</div>
+      <div class="detail-card" data-open-sleep="1">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="big-val" style="color:var(--sleep)" id="detail-sleep-dur">—</div>
+            <div class="small-sub" id="detail-sleep-times">—</div>
+          </div>
+          <span class="badge" id="detail-sleep-badge">—</span>
+        </div>
+        <div class="sleep-stages" id="detail-sleep-stages"></div>
+        <div class="sleep-legend-row">
+          <span><span class="swatch" style="background:#444455"></span>Awake</span>
+          <span><span class="swatch" style="background:#6b62c0"></span>Light</span>
+          <span><span class="swatch" style="background:#8B78F0"></span>Deep</span>
+          <span><span class="swatch" style="background:#a89cf5"></span>REM</span>
+        </div>
+      </div>
+    </div>
+    <div class="section fadein fadein-5">
+      <div class="section-title">Strain</div>
+      <div class="detail-card" data-sub="Strain" data-icon="🔥">
+        <div>
+          <div class="big-val" style="color:var(--strain)"><span id="detail-strain-val">—</span> <span style="font-size:14px;color:var(--muted);font-weight:500">/ 21</span></div>
+          <div class="small-sub" id="detail-strain-sub">—</div>
+          <span class="badge" id="detail-strain-badge" style="margin-top:8px">—</span>
+        </div>
+        <div class="trend-bars" id="strain-trend-bars"></div>
+        <div class="trend-labels"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TRENDS ══ -->
+  <div class="page" id="page-trends">
+    <div class="header">
+      <div class="header-left"><h1>Trends</h1><div class="date-label">Your health data</div></div>
+      <div class="avatar" id="trends-avatar" role="button" aria-label="Open profile">JD</div>
+    </div>
+    <div class="trends-list" id="trends-list"></div>
+  </div>
+
+  <!-- ══ ACTIVITIES / SETTINGS stubs ══ -->
+  <div class="stub-page" id="page-activities"><div class="stub-icon">🏃</div><div class="stub-title">Activities</div><div class="stub-sub">Coming soon</div></div>
+  <div class="stub-page" id="page-settings"><div class="stub-icon">⚙️</div><div class="stub-title">Settings</div><div class="stub-sub">Coming soon</div></div>
+
+  <!-- ══ TAB BAR ══ -->
+  <nav class="tab-bar" role="tablist">
+    <div class="tab-item active" role="tab" aria-selected="true" data-page="home" tabindex="0">
+      <div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></div>
+      <div class="tab-lbl">Today</div><div class="tab-active-dot"></div>
+    </div>
+    <div class="tab-item" role="tab" aria-selected="false" data-page="trends" tabindex="0">
+      <div class="tab-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+      <div class="tab-lbl">Trends</div><div class="tab-active-dot"></div>
+    </div>
+    <div class="tab-item" role="tab" aria-selected="false" data-page="activities" tabindex="0">
+      <div class="tab-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
+      <div class="tab-lbl">Activities</div><div class="tab-active-dot"></div>
+    </div>
+    <div class="tab-item" role="tab" aria-selected="false" data-page="settings" tabindex="0">
+      <div class="tab-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+      <div class="tab-lbl">Settings</div><div class="tab-active-dot"></div>
+    </div>
+  </nav>
+
+  <!-- ══ METRIC SUB-PAGE ══ -->
+  <div class="overlay-page" id="sub-page">
+    <div class="overlay-header">
+      <div class="back-btn" id="sub-back"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+      <div class="overlay-title" id="sub-title">Detail</div>
+    </div>
+    <div class="sub-body">
+      <div class="sub-body-icon" id="sub-icon">📊</div>
+      <div class="sub-body-label" id="sub-label">Coming soon</div>
+    </div>
+  </div>
+
+  <!-- ══ SLEEP PAGE ══ -->
+  <div class="overlay-page" id="sleep-page">
+    <div class="overlay-header">
+      <div class="back-btn" id="sleep-back"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+      <div class="overlay-title">Sleep</div>
+    </div>
+    <!-- Hero -->
+    <div class="sleep-hero">
+      <div class="sleep-hero-dur" id="sl-hero-dur">—</div>
+      <div class="sleep-hero-sub" id="sl-hero-sub">—</div>
+      <div class="sleep-score-row">
+        <div class="sleep-score-chip highlight" id="sl-chip-score">—</div>
+        <div class="sleep-score-chip" id="sl-chip-efficiency">—</div>
+        <div class="sleep-score-chip" id="sl-chip-hr">—</div>
+      </div>
+    </div>
+    <!-- Timeline -->
+    <div class="sleep-timeline">
+      <div class="section-title">Sleep timeline</div>
+      <div class="timeline-bar-wrap" id="sl-timeline"></div>
+      <div class="timeline-labels" id="sl-timeline-labels"></div>
+    </div>
+    <!-- Stage breakdown grid -->
+    <div class="sleep-stages-grid">
+      <div class="stage-card">
+        <div class="stage-card-label">REM</div>
+        <div class="stage-card-val" style="color:var(--sleep)" id="sl-rem-dur">—</div>
+        <div class="stage-card-bar"><div class="stage-card-fill" style="background:var(--sleep)" id="sl-rem-bar"></div></div>
+        <div class="stage-card-pct" id="sl-rem-pct">—</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-card-label">Deep</div>
+        <div class="stage-card-val" style="color:#7F77DD" id="sl-deep-dur">—</div>
+        <div class="stage-card-bar"><div class="stage-card-fill" style="background:#7F77DD" id="sl-deep-bar"></div></div>
+        <div class="stage-card-pct" id="sl-deep-pct">—</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-card-label">Light</div>
+        <div class="stage-card-val" style="color:#6b62c0" id="sl-light-dur">—</div>
+        <div class="stage-card-bar"><div class="stage-card-fill" style="background:#6b62c0" id="sl-light-bar"></div></div>
+        <div class="stage-card-pct" id="sl-light-pct">—</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-card-label">Awake</div>
+        <div class="stage-card-val" style="color:var(--muted)" id="sl-awake-dur">—</div>
+        <div class="stage-card-bar"><div class="stage-card-fill" style="background:var(--dimmed)" id="sl-awake-bar"></div></div>
+        <div class="stage-card-pct" id="sl-awake-pct">—</div>
+      </div>
+    </div>
+    <!-- Metrics list -->
+    <div class="sleep-metrics-list">
+      <div class="section-title" style="margin-bottom:0">Details</div>
+      <div class="sleep-metric-row"><span class="sleep-metric-label">Bedtime</span><span class="sleep-metric-val" id="sl-bedtime">—</span></div>
+      <div class="sleep-metric-row"><span class="sleep-metric-label">Wake time</span><span class="sleep-metric-val" id="sl-waketime">—</span></div>
+      <div class="sleep-metric-row"><span class="sleep-metric-label">Resting HR</span><span class="sleep-metric-val" id="sl-rhr">—</span></div>
+      <div class="sleep-metric-row"><span class="sleep-metric-label">Resp. rate</span><span class="sleep-metric-val" id="sl-resp">—</span></div>
+      <div class="sleep-metric-row"><span class="sleep-metric-label">Blood oxygen</span><span class="sleep-metric-val" id="sl-spo2">—</span></div>
+      <div class="sleep-metric-row"><span class="sleep-metric-label">HRV avg</span><span class="sleep-metric-val" id="sl-hrv">—</span></div>
+    </div>
+  </div>
+
+  <!-- ══ PROFILE PAGE ══ -->
+  <div class="overlay-page" id="profile-page" style="z-index:300">
+    <div class="overlay-header">
+      <div class="back-btn" id="profile-back"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+      <div class="overlay-title">Profile</div>
+    </div>
+    <div class="profile-hero">
+      <div class="profile-avatar-large">JD</div>
+      <div class="profile-name">Jamie Doe</div>
+      <div class="profile-handle">@jamiedoe · Athlete</div>
+    </div>
+    <div class="profile-stats">
+      <div class="profile-stat"><div class="profile-stat-val" style="color:var(--recovery)">76<span style="font-size:12px;font-weight:500">%</span></div><div class="profile-stat-lbl">avg rec</div></div>
+      <div class="profile-stat"><div class="profile-stat-val" style="color:var(--strain)">13.4</div><div class="profile-stat-lbl">avg strain</div></div>
+      <div class="profile-stat"><div class="profile-stat-val" style="color:var(--sleep)">7.1<span style="font-size:12px;font-weight:500">h</span></div><div class="profile-stat-lbl">avg sleep</div></div>
+    </div>
+    <div class="profile-section">
+      <div class="profile-section-title">Connections</div>
+      <div class="profile-row">
+        <div class="profile-row-left">
+          <div class="profile-row-icon" style="background:rgba(31,201,142,0.12)">🍎</div>
+          <div><div class="profile-row-label">Apple Health</div><div class="profile-row-sub" id="profile-apple-sub">Connected</div></div>
+        </div>
+        <div class="conn-toggle on" id="toggle-apple" role="switch" aria-checked="true" tabindex="0"></div>
+      </div>
+      <div class="profile-row">
+        <div class="profile-row-left">
+          <div class="profile-row-icon" style="background:rgba(139,120,240,0.12)">⌚</div>
+          <div><div class="profile-row-label">Garmin Connect</div><div class="profile-row-sub" id="profile-garmin-sub">Connected</div></div>
+        </div>
+        <div class="conn-toggle on" id="toggle-garmin" role="switch" aria-checked="true" tabindex="0"></div>
+      </div>
+    </div>
+    <div class="profile-section">
+      <div class="profile-section-title">Account</div>
+      <div class="profile-row"><div class="profile-row-left"><div class="profile-row-icon" style="background:rgba(255,255,255,0.06)">👤</div><div><div class="profile-row-label">Personal Info</div><div class="profile-row-sub">Name, DOB, gender</div></div></div><div class="profile-row-right"><div class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div></div>
+      <div class="profile-row"><div class="profile-row-left"><div class="profile-row-icon" style="background:rgba(255,255,255,0.06)">🎯</div><div><div class="profile-row-label">Goals</div><div class="profile-row-sub">Targets & preferences</div></div></div><div class="profile-row-right"><div class="profile-row-value">5 active</div><div class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div></div>
+      <div class="profile-row"><div class="profile-row-left"><div class="profile-row-icon" style="background:rgba(255,255,255,0.06)">🔔</div><div><div class="profile-row-label">Notifications</div><div class="profile-row-sub">Alerts & reminders</div></div></div><div class="profile-row-right"><div class="profile-row-value">On</div><div class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div></div>
+      <div class="profile-row"><div class="profile-row-left"><div class="profile-row-icon" style="background:rgba(255,255,255,0.06)">🔒</div><div><div class="profile-row-label">Privacy & Data</div><div class="profile-row-sub">Export, delete account</div></div></div><div class="profile-row-right"><div class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div></div>
+    </div>
+    <div style="height:40px"></div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════
+// APPLE HEALTHKIT BRIDGE
+// This PWA uses the Web / WKWebView JS bridge
+// that a native iOS wrapper exposes as
+// window.webkit.messageHandlers.healthkit
+// For standalone web fallback, we use the
+// Health API shim below.
+// ═══════════════════════════════════════════
+
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const HAS_NATIVE = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.healthkit);
+
+// Pending callbacks map for native bridge responses
+const hkCallbacks = {};
+let hkCallbackId = 0;
+
+// Called by native iOS when HealthKit data is ready
+window.onHealthKitData = function(id, data) {
+  if (hkCallbacks[id]) { hkCallbacks[id](data); delete hkCallbacks[id]; }
+};
+
+function requestHK(type, options) {
+  return new Promise((resolve) => {
+    if (HAS_NATIVE) {
+      const id = ++hkCallbackId;
+      hkCallbacks[id] = resolve;
+      window.webkit.messageHandlers.healthkit.postMessage({ id, type, options });
+    } else {
+      // Web fallback: use mock data so UI renders on desktop/preview
+      resolve(getMockHKData(type, options));
+    }
+  });
+}
+
+// ─── HealthKit query types this app uses ───
+// HK type strings mirror HKObjectType identifiers
+const HK_TYPES = {
+  HRV:         'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
+  RESTING_HR:  'HKQuantityTypeIdentifierRestingHeartRate',
+  ACTIVE_KCAL: 'HKQuantityTypeIdentifierActiveEnergyBurned',
+  SLEEP:       'HKCategoryTypeIdentifierSleepAnalysis',
+  SPO2:        'HKQuantityTypeIdentifierOxygenSaturation',
+  RESP_RATE:   'HKQuantityTypeIdentifierRespiratoryRate',
+};
+
+// ─── Request HealthKit authorisation ───
+async function requestHKAuthorization() {
+  return requestHK('authorize', { read: Object.values(HK_TYPES) });
+}
+
+// ─── Fetch a day's data from HealthKit ───
+async function fetchDayData(date) {
+  const dateStr = date.toISOString().split('T')[0];
+  const [hrv, rhr, kcal, sleep, spo2, resp] = await Promise.all([
+    requestHK('query', { type: HK_TYPES.HRV,         date: dateStr }),
+    requestHK('query', { type: HK_TYPES.RESTING_HR,  date: dateStr }),
+    requestHK('query', { type: HK_TYPES.ACTIVE_KCAL, date: dateStr }),
+    requestHK('query', { type: HK_TYPES.SLEEP,        date: dateStr }),
+    requestHK('query', { type: HK_TYPES.SPO2,         date: dateStr }),
+    requestHK('query', { type: HK_TYPES.RESP_RATE,    date: dateStr }),
+  ]);
+  return { hrv, rhr, kcal, sleep, spo2, resp };
+}
+
+// ─── Mock data for web preview (not used on real device) ───
+const MOCK = {
+  0:  { hrv:68,  rhr:52, kcal:580,  sleep:{ total:442, awake:8,  light:18, deep:34, rem:40, bedH:23,bedM:8, wakeH:6,wakeM:30, resp:14.2, spo2:97 } },
+  '-1':{ hrv:52,rhr:60, kcal:820,  sleep:{ total:398, awake:12, light:22, deep:28, rem:38, bedH:0, bedM:15,wakeH:6,wakeM:53, resp:14.8, spo2:96 } },
+  '-2':{ hrv:74,rhr:49, kcal:410,  sleep:{ total:478, awake:5,  light:15, deep:36, rem:44, bedH:22,bedM:45,wakeH:6,wakeM:43, resp:13.9, spo2:98 } },
+  '-3':{ hrv:44,rhr:64, kcal:940,  sleep:{ total:362, awake:15, light:25, deep:24, rem:36, bedH:1, bedM:0, wakeH:6,wakeM:2,  resp:15.1, spo2:95 } },
+  '-4':{ hrv:63,rhr:55, kcal:640,  sleep:{ total:430, awake:7,  light:20, deep:32, rem:41, bedH:23,bedM:20,wakeH:6,wakeM:30, resp:14.0, spo2:97 } },
+  '-5':{ hrv:71,rhr:51, kcal:510,  sleep:{ total:455, awake:6,  light:16, deep:35, rem:43, bedH:22,bedM:55,wakeH:6,wakeM:30, resp:13.7, spo2:98 } },
+  '-6':{ hrv:38,rhr:67, kcal:1020, sleep:{ total:320, awake:18, light:28, deep:20, rem:34, bedH:1, bedM:30,wakeH:6,wakeM:50, resp:15.5, spo2:94 } },
+};
+
+function getMockHKData(type, options) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = options && options.date ? new Date(options.date) : today;
+  d.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  const m = MOCK[diff] || MOCK[0];
+  if (type === 'authorize') return { granted: true };
+  if (type === 'query') {
+    switch(options.type) {
+      case HK_TYPES.HRV:         return { value: m.hrv,  unit: 'ms' };
+      case HK_TYPES.RESTING_HR:  return { value: m.rhr,  unit: 'bpm' };
+      case HK_TYPES.ACTIVE_KCAL: return { value: m.kcal, unit: 'kcal' };
+      case HK_TYPES.SLEEP:       return m.sleep;
+      case HK_TYPES.SPO2:        return { value: m.sleep.spo2, unit: '%' };
+      case HK_TYPES.RESP_RATE:   return { value: m.sleep.resp, unit: 'brpm' };
+    }
+  }
+  return null;
+}
+
+// ─── Derive metrics from raw HK data ───
+function deriveMetrics(raw) {
+  const { hrv, rhr, kcal, sleep } = raw;
+  const HRV_BASELINE = 60; // ideally stored per-user
+  const recScore = Math.min(100, Math.round(
+    (hrv.value / HRV_BASELINE) * 50 +
+    (Math.max(0, 65 - rhr.value) / 15) * 30 +
+    20
+  ));
+  const strainScore = Math.min(21, parseFloat((kcal.value / 100).toFixed(1)));
+  const sleepScore  = Math.min(100, Math.round((sleep.total / 480) * 100));
+  return { recScore, strainScore, sleepScore, hrv: hrv.value, rhr: rhr.value, kcal: kcal.value, sleep, HRV_BASELINE };
+}
+
+// ─── Helpers ───
+function fmtMin(m){ return `${Math.floor(m/60)}h ${m%60}m`; }
+function padZ(n){ return n.toString().padStart(2,'0'); }
+function fmtTime(h,m){ const ap=h>=12?'PM':'AM'; return `${h%12||12}:${padZ(m)} ${ap}`; }
+function recLabel(s){ return s>=80?'Primed':s>=65?'Ready':s>=50?'Moderate':'Rest needed'; }
+function recBadge(s){ return s>=65?'badge-good':s>=50?'badge-warn':'badge-low'; }
+function sleepLabel(m){ return m>=450?'Great':m>=390?'Good':m>=330?'Fair':'Poor'; }
+function sleepBadge(m){ return m>=390?'badge-good':m>=330?'badge-warn':'badge-low'; }
+function strainLabel(s){ return s>=18?'Max effort':s>=14?'High load':s>=9?'Moderate':'Light day'; }
+function strainBadge(s){ return s>=14?'badge-warn':'badge-good'; }
+
+// ─── Render ring animation ───
+function animateRing(elId, circ, pct, delay) {
+  const el = document.getElementById(elId); if(!el) return;
+  el.style.strokeDashoffset = circ;
+  const target = circ * (1 - Math.max(0, Math.min(1, pct)));
+  setTimeout(() => {
+    const start = performance.now(), dur = 800;
+    (function tick(now){
+      const t = Math.min((now-start)/dur, 1);
+      const e = t===1?1:1-Math.pow(2,-10*t);
+      el.style.strokeDashoffset = circ - e*(circ-target);
+      if(t<1) requestAnimationFrame(tick);
+    })(start);
+  }, delay);
+}
+
+// ─── Render all home-page widgets from derived metrics ───
+function renderHome(m) {
+  const overall = Math.round((m.recScore + m.strainScore/21*100 + m.sleepScore)/3);
+  const sub = overall>=75?'balanced':overall>=55?'moderate':'low';
+  document.getElementById('ring-overall-val').textContent = overall+'%';
+  document.getElementById('ring-overall-sub').textContent = sub;
+  document.getElementById('legend-recovery').textContent = m.recScore+'%';
+  document.getElementById('legend-strain').textContent   = Math.round(m.strainScore/21*100)+'%';
+  document.getElementById('legend-sleep').textContent    = m.sleepScore+'%';
+  animateRing('ring-recovery', 603.2, m.recScore/100,         100);
+  animateRing('ring-strain',   446.1, m.strainScore/21,       260);
+  animateRing('ring-sleep',    289.0, m.sleepScore/100,       420);
+  document.getElementById('metric-recovery').innerHTML = m.recScore+'<span class="metric-unit">%</span>';
+  document.getElementById('metric-strain').textContent  = m.strainScore;
+  document.getElementById('metric-sleep').innerHTML    = `${Math.floor(m.sleep.total/60)}<span class="metric-unit">h${m.sleep.total%60}</span>`;
+  document.getElementById('detail-hrv').textContent     = m.hrv;
+  document.getElementById('detail-hrv-sub').textContent = `Baseline ${m.HRV_BASELINE}ms · ${m.hrv>=m.HRV_BASELINE?'+':''}${m.hrv-m.HRV_BASELINE}ms`;
+  const rb = document.getElementById('detail-rec-badge');
+  rb.textContent = recLabel(m.recScore); rb.className = 'badge '+recBadge(m.recScore);
+  // Sparkline
+  const spark = document.getElementById('sparkline-hrv'); spark.innerHTML='';
+  const sv = [42,55,48,62,52,70,m.hrv]; const sm = Math.max(...sv);
+  sv.forEach((v,i)=>{ const b=document.createElement('div'); b.style.height=Math.round(v/sm*100)+'%'; b.style.background=i===sv.length-1?'var(--recovery)':'var(--dimmed)'; spark.appendChild(b); });
+  // Sleep summary card
+  document.getElementById('detail-sleep-dur').textContent   = fmtMin(m.sleep.total);
+  document.getElementById('detail-sleep-times').textContent = fmtTime(m.sleep.bedH,m.sleep.bedM)+' — '+fmtTime(m.sleep.wakeH,m.sleep.wakeM);
+  const sb = document.getElementById('detail-sleep-badge');
+  sb.textContent = sleepLabel(m.sleep.total); sb.className = 'badge '+sleepBadge(m.sleep.total);
+  const stages = document.getElementById('detail-sleep-stages'); stages.innerHTML='';
+  [[m.sleep.awake,'#444455'],[m.sleep.light,'#6b62c0'],[m.sleep.deep,'#8B78F0'],[m.sleep.rem,'#a89cf5']].forEach(([p,c])=>{ const s=document.createElement('div'); s.style.width=p+'%'; s.style.background=c; stages.appendChild(s); });
+  // Strain
+  document.getElementById('detail-strain-val').textContent  = m.strainScore;
+  document.getElementById('detail-strain-sub').textContent  = `${Math.round(m.strainScore/21*100)}% effort · ${m.kcal} kcal`;
+  const stb = document.getElementById('detail-strain-badge');
+  stb.textContent = strainLabel(m.strainScore); stb.className = 'badge '+strainBadge(m.strainScore);
+  const bars = document.getElementById('strain-trend-bars'); bars.innerHTML='';
+  const bv = [55,30,80,20,65,40,Math.round(m.strainScore/21*100)];
+  bv.forEach((h,i)=>{ const b=document.createElement('div'); b.className='trend-bar'; b.style.height=h+'%'; b.style.background=i===bv.length-1?'var(--strain)':'rgba(232,96,58,0.4)'; bars.appendChild(b); });
+}
+
+// ─── Render sleep overlay ───
+function renderSleepPage(m) {
+  const s = m.sleep;
+  document.getElementById('sl-hero-dur').textContent = fmtMin(s.total);
+  document.getElementById('sl-hero-sub').textContent = fmtTime(s.bedH,s.bedM)+' → '+fmtTime(s.wakeH,s.wakeM);
+  document.getElementById('sl-chip-score').textContent = sleepLabel(s.total);
+  document.getElementById('sl-chip-efficiency').textContent = Math.round((s.total/(s.total+s.awake))*100)+'% efficient';
+  document.getElementById('sl-chip-hr').textContent = m.rhr+' bpm resting';
+  // Timeline visual
+  const tl = document.getElementById('sl-timeline'); tl.innerHTML='';
+  const totalBlocks = s.awake+s.light+s.deep+s.rem;
+  const segs = [[s.awake,'#444455'],[s.light,'#6b62c0'],[s.deep,'#8B78F0'],[s.rem,'#a89cf5']];
+  let left=0;
+  segs.forEach(([p,c])=>{ const w=p/totalBlocks*100; const seg=document.createElement('div'); seg.className='timeline-segment'; seg.style.left=left+'%'; seg.style.width=w+'%'; seg.style.background=c; tl.appendChild(seg); left+=w; });
+  const labs = document.getElementById('sl-timeline-labels'); labs.innerHTML='';
+  [fmtTime(s.bedH,s.bedM),'Mid','','','Wake'].forEach(l=>{ const sp=document.createElement('span'); sp.textContent=l; labs.appendChild(sp); });
+  // Stage cards
+  const stagePairs = [['rem',s.rem,'sl-rem'],['deep',s.deep,'sl-deep'],['light',s.light,'sl-light'],['awake',s.awake,'sl-awake']];
+  stagePairs.forEach(([,mins,id])=>{ const pct=Math.round(mins/totalBlocks*100); document.getElementById(id+'-dur').textContent=fmtMin(mins); document.getElementById(id+'-bar').style.width=pct+'%'; document.getElementById(id+'-pct').textContent=pct+'% of night'; });
+  // Metrics
+  document.getElementById('sl-bedtime').textContent  = fmtTime(s.bedH,s.bedM);
+  document.getElementById('sl-waketime').textContent = fmtTime(s.wakeH,s.wakeM);
+  document.getElementById('sl-rhr').textContent      = m.rhr+' bpm';
+  document.getElementById('sl-resp').textContent     = s.resp+' br/min';
+  document.getElementById('sl-spo2').textContent     = s.spo2+'%';
+  document.getElementById('sl-hrv').textContent      = m.hrv+' ms';
+}
+
+// ─── Load data for a given date ───
+let currentMetrics = null;
+async function loadDate(date) {
+  const raw = await fetchDayData(date);
+  currentMetrics = deriveMetrics(raw);
+  renderHome(currentMetrics);
+  // Refresh sleep page if open
+  if (document.getElementById('sleep-page').classList.contains('open')) {
+    renderSleepPage(currentMetrics);
+  }
+}
+
+// ─── HealthKit init ───
+let hkGranted = false;
+async function initHealthKit() {
+  if (!IS_IOS && !HAS_NATIVE) {
+    // Desktop preview — load mock immediately, hide HK banner
+    document.getElementById('hk-banner').style.display = 'none';
+    hkGranted = true;
+    loadDate(new Date());
+    return;
+  }
+  const result = await requestHKAuthorization();
+  hkGranted = result && result.granted;
+  if (hkGranted) {
+    document.getElementById('hk-banner').style.display = 'none';
+    loadDate(new Date());
+  } else {
+    document.getElementById('hk-banner').style.display = 'flex';
+  }
+}
+
+document.getElementById('hk-banner').addEventListener('click', initHealthKit);
+
+// ─── Connection state ───
+const conn = { apple: true, garmin: true };
+function updatePills() {
+  function setPill(el, on, name) {
+    el.className = 'pill '+(on?'pill-connected':'pill-disconnected');
+    el.querySelector('span').textContent = name+(on?'':' — off');
+  }
+  setPill(document.getElementById('pill-apple'),  conn.apple,  'Apple Health');
+  setPill(document.getElementById('pill-garmin'), conn.garmin, 'Garmin');
+  const banner = document.getElementById('disc-banner');
+  const text   = document.getElementById('disc-text');
+  if (!conn.apple && !conn.garmin){ banner.style.display='flex'; text.textContent='No data sources connected'; }
+  else if (!conn.apple)           { banner.style.display='flex'; text.textContent='Apple Health disconnected'; }
+  else if (!conn.garmin)          { banner.style.display='flex'; text.textContent='Garmin Connect disconnected'; }
+  else                            { banner.style.display='none'; }
+  document.getElementById('toggle-apple').classList.toggle('on',conn.apple);
+  document.getElementById('toggle-apple').setAttribute('aria-checked',conn.apple);
+  document.getElementById('profile-apple-sub').textContent = conn.apple?'Connected':'Disconnected';
+  document.getElementById('toggle-garmin').classList.toggle('on',conn.garmin);
+  document.getElementById('toggle-garmin').setAttribute('aria-checked',conn.garmin);
+  document.getElementById('profile-garmin-sub').textContent = conn.garmin?'Connected':'Disconnected';
+}
+document.getElementById('pill-apple').addEventListener('click', () => openProfile());
+document.getElementById('pill-garmin').addEventListener('click', () => openProfile());
+['apple','garmin'].forEach(k => {
+  const t = document.getElementById('toggle-'+k);
+  function doToggle(){ conn[k]=!conn[k]; updatePills(); if(conn[k]) loadDate(new Date()); }
+  t.addEventListener('click', doToggle);
+  t.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') doToggle(); });
+});
+
+// ─── Overlays ───
+function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+
+// Profile
+const profilePage = document.getElementById('profile-page');
+function openProfile(){ profilePage.classList.add('open'); }
+document.getElementById('profile-back').addEventListener('click', ()=>profilePage.classList.remove('open'));
+['home-avatar','trends-avatar'].forEach(id=>document.getElementById(id).addEventListener('click', openProfile));
+
+// Metric sub-page
+document.getElementById('sub-back').addEventListener('click', ()=>closeOverlay('sub-page'));
+document.querySelectorAll('[data-sub]').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.getElementById('sub-title').textContent = el.dataset.sub;
+    document.getElementById('sub-icon').textContent  = el.dataset.icon||'📊';
+    document.getElementById('sub-label').textContent = el.dataset.sub+' detailed data coming soon';
+    openOverlay('sub-page');
+  });
+});
+
+// Sleep page — opened by any [data-open-sleep]
+document.getElementById('sleep-back').addEventListener('click', ()=>closeOverlay('sleep-page'));
+document.querySelectorAll('[data-open-sleep]').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    if (currentMetrics) renderSleepPage(currentMetrics);
+    openOverlay('sleep-page');
+  });
+});
+// Also wire sleep button in Trends list (added dynamically below)
+window.__openSleepPage = function() {
+  if (currentMetrics) renderSleepPage(currentMetrics);
+  openOverlay('sleep-page');
+};
+
+// ─── Date label ───
+const today = new Date();
+document.getElementById('today-date').textContent =
+  today.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+
+// ─── Week navigator ───
+const DAY_NAMES=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const strip=document.getElementById('date-strip');
+const btnPrev=document.getElementById('week-prev');
+const btnNext=document.getElementById('week-next');
+let weekOffset=0;
+let activeDate=new Date(); activeDate.setHours(0,0,0,0);
+
+function getWeekStart(off){
+  const d=new Date(today); const dow=(d.getDay()+6)%7;
+  d.setDate(d.getDate()-dow+off*7); d.setHours(0,0,0,0); return d;
+}
+function isSameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+
+function renderWeek(direction){
+  const ws=getWeekStart(weekOffset), tm=new Date(today); tm.setHours(0,0,0,0);
+  const out=direction==='prev'?'week-slide-out-right':'week-slide-out-left';
+  const inn=direction==='prev'?'week-slide-in-right':'week-slide-in-left';
+  strip.classList.add(out);
+  setTimeout(()=>{
+    strip.classList.remove(out); strip.innerHTML='';
+    for(let i=0;i<7;i++){
+      const d=new Date(ws); d.setDate(ws.getDate()+i);
+      const fut=d>tm, act=isSameDay(d,activeDate), tod=isSameDay(d,tm);
+      const btn=document.createElement('div');
+      btn.className='day-btn'+(act?' active':'');
+      btn.innerHTML=`<span class="day-lbl">${DAY_NAMES[d.getDay()]}</span><span class="day-num">${d.getDate()}</span><div class="day-dot" style="${tod&&!act?'background:var(--recovery);opacity:0.7;':''}"></div>`;
+      if(!fut){ btn.addEventListener('click',()=>{ strip.querySelectorAll('.day-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); activeDate=new Date(d); loadDate(d); }); }
+      else{ btn.style.opacity='0.28'; btn.style.pointerEvents='none'; }
+      strip.appendChild(btn);
+    }
+    strip.classList.add(inn);
+    setTimeout(()=>strip.classList.remove(inn),280);
+    btnPrev.classList.remove('disabled');
+    btnNext.classList.toggle('disabled', getWeekStart(weekOffset+1)>tm);
+  },200);
+}
+renderWeek('next');
+btnPrev.addEventListener('click',()=>{ weekOffset--; renderWeek('prev'); });
+btnNext.addEventListener('click',()=>{ weekOffset++; renderWeek('next'); });
+
+// Ring SVG fade in
+const rsvg=document.getElementById('ring-svg');
+rsvg.style.opacity='0'; rsvg.style.transform='scale(0.92)';
+rsvg.style.transition='opacity 0.5s ease,transform 0.6s cubic-bezier(0.22,1,0.36,1)';
+setTimeout(()=>{ rsvg.style.opacity='1'; rsvg.style.transform='scale(1)'; },100);
+
+// ─── Trends list ───
+const TREND_ITEMS=[
+  { label:'Sleep',             sub:'Duration, stages & quality',   sleep:true  },
+  { label:'Health Status',     sub:'Overall wellness score'                    },
+  { label:'Lifestyle Logging', sub:'Food, hydration & habits'                  },
+  { label:'Weight',            sub:'Body mass over time'                       },
+  { label:'Pulse Ox',          sub:'Blood oxygen saturation'                   },
+  { label:'PO Acclimation',    sub:'Altitude adaptation tracking'              },
+  { label:'Respiration',       sub:'Breathing rate trends'                     },
+  { label:'HR',                sub:'Heart rate & zones'                        },
+  { label:'BP',                sub:'Blood pressure history'                    },
+  { label:'Stress',            sub:'HRV-derived stress index'                  },
+  { label:'Body Bat.',         sub:'Body battery energy reserve'               },
+  { label:'Fitness Age',       sub:'Biological vs chronological'               },
+  { label:'Health Snapshot',   sub:'Full biometric summary'                    },
+];
+const trendsList=document.getElementById('trends-list');
+TREND_ITEMS.forEach((item,i)=>{
+  const btn=document.createElement('div');
+  btn.className='trend-btn';
+  btn.setAttribute('role','button'); btn.setAttribute('tabindex','0'); btn.setAttribute('aria-label',item.label);
+  btn.style.animationDelay=(i*0.042)+'s';
+  btn.innerHTML=`<div class="trend-text"><div class="trend-label">${item.label}</div><div class="trend-sublabel">${item.sub}</div></div><div class="trend-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>`;
+  btn.addEventListener('click',()=>{
+    if(item.sleep){ window.__openSleepPage(); return; }
+    btn.style.transform='scale(0.97)'; setTimeout(()=>{ btn.style.transform=''; },150);
+  });
+  btn.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') btn.click(); });
+  trendsList.appendChild(btn);
+});
+function animateTrends(){ trendsList.querySelectorAll('.trend-btn').forEach(b=>{ b.classList.remove('visible'); void b.offsetWidth; b.classList.add('visible'); }); }
+
+// ─── Tab navigation ───
+const tabs=document.querySelectorAll('.tab-item');
+const pages={ home:document.getElementById('page-home'), trends:document.getElementById('page-trends'), activities:document.getElementById('page-activities'), settings:document.getElementById('page-settings') };
+function switchTab(id){
+  tabs.forEach(t=>{ const on=t.dataset.page===id; t.classList.toggle('active',on); t.setAttribute('aria-selected',on); });
+  Object.entries(pages).forEach(([k,el])=>el.classList.toggle('active',k===id));
+  if(id==='trends') animateTrends();
+}
+tabs.forEach(t=>{ t.addEventListener('click',()=>switchTab(t.dataset.page)); t.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') switchTab(t.dataset.page); }); });
+
+// ─── Boot ───
+updatePills();
+initHealthKit();
+</script>
+</body>
+</html>
